@@ -15,65 +15,101 @@ def warning(text, func=print, func_args={}):
 def error(text, func=print, func_args={}):
     return func(f"[{paint(1, 'x')}] {paint(1, 'error')}: {text}", **func_args)
 
-# System checks
+class Cleaner:
+    def __init__(self):
+        self.size = 0
 
-# Check if system is Gentoo Linux
-isGentoo = False
-if sys.platform=="linux":
-    if os.path.exists("/etc/os-release"):
-        lines = open("/etc/os-release").read().split("\n")
-        for line in lines:
-            if line:
-                try:
-                    line = line.split("=")
-                    if line[0]=="NAME" and line[1]=="Gentoo":
-                        isGentoo = True
-                except:
-                    pass
-if not isGentoo:
-    error("This script is only for Gentoo Linux")
-    exit(1)
+    # Main clean function
+    def clean(self, folderpath, files, infotext):
+        if files!=[]:
+            if warning(f"Clean {folderpath}? (y/n): ", func=input).lower()=="y":
+                info(f"{infotext} from {folderpath}")
+                for file in files:
+                    filepath = os.path.join(folderpath, file)
+                    try:
+                        if os.path.isfile(filepath):
+                            self.size += os.path.getsize(filepath)
+                            os.remove(filepath)
+                        elif os.path.isdir(filepath):
+                            self.size += self.getFolderSize(filepath)
+                            shutil.rmtree(filepath, ignore_errors=True)
+                        print(f"    > {filepath}")
+                    except PermissionError as p:
+                        error(f"{p}")
+                        exit(1)
+        else:
+            info(f"{folderpath} is clean!")
 
-# Root user check
-if os.geteuid()!=0:
-    error("Run this as root")
-    exit(1)
+    # Get old kernel files
+    @staticmethod
+    def getOldKernelFiles(folderpath, smartcheck=True):
+        # Get current kernel name
+        current_kernel = subprocess.check_output(["uname", "-r"]).decode().split("\n")[0]
+        oldkernels = []
+        # Find old kernel files
+        for file in os.listdir(folderpath):
+            if smartcheck:
+                if not any([i in file for i in ("config-", "initramfs-",
+                                                "vmlinuz-", "System.map-")]):
+                    continue
+            if current_kernel not in file:
+                path = os.path.join(folderpath, file)
+                oldkernels.append(path)
+        return oldkernels
 
-# Main clean function
-def clean(folderpath, files, infotext):
-    if files!=[]:
-        if warning(f"Clean {folderpath}? (y/n): ", func=input).lower()=="y":
-            info(f"{infotext} from {folderpath}")
-            for file in files:
-                filepath = os.path.join(folderpath, file)
-                try:
-                    if os.path.isfile(filepath):
-                        os.remove(filepath)
-                    elif os.path.isdir(filepath):
-                        shutil.rmtree(filepath)
-                    print(f"    > {filepath}")
-                except PermissionError as p:
-                    error(f"{p}")
-                    exit(1)
-    else:
-        info(f"{folderpath} is clean!")
+    # Get folder size
+    @staticmethod
+    def getFolderSize(folder):
+        size = 0
+        for path, dirs, files in os.walk(folder):
+            for f in files:
+                fp = os.path.realpath(os.path.join(path, f))
+                if os.path.exists(fp):
+                    size += os.path.getsize(fp)
+        return size
 
-# /boot
-# Get current kernel name
-current_kernel = subprocess.check_output(["uname", "-r"]).decode().split("\n")[0]
-oldkernels = []
-# Find old kernel files
-for file in os.listdir("/boot"):
-    if any([i in file for i in ("config-", "initramfs-",
-                                "vmlinuz-", "System.map-")]):
-        if current_kernel not in file:
-            oldkernels.append(file)
-clean("/boot", oldkernels, "Cleaning old kernels")
+if __name__=="__main__":
+    # System checks
 
-# /var/tmp/portage
-portage_tmp = os.listdir("/var/tmp/portage")
-clean("/var/tmp/portage", portage_tmp, "Cleaning portage cache")
+    # Check if system is Gentoo Linux
+    isGentoo = False
+    if sys.platform=="linux":
+        if os.path.exists("/etc/os-release"):
+            lines = open("/etc/os-release").read().split("\n")
+            for line in lines:
+                if line:
+                    try:
+                        line = line.split("=")
+                        if line[0]=="NAME" and line[1]=="Gentoo":
+                            isGentoo = True
+                    except:
+                        pass
+    if not isGentoo:
+        error("This script is only for Gentoo Linux")
+        exit(1)
 
-# /var/tmp/genkernel
-genkernel_tmp = os.listdir("/var/tmp/genkernel")
-clean("/var/tmp/genkernel", genkernel_tmp, "Cleaning genkernel cache")
+    # Root user check
+    if os.geteuid()!=0:
+        error("Run this as root")
+        exit(1)
+
+    # Cleaner init
+    cleaner = Cleaner()
+    
+    # /boot
+    boot_files = cleaner.getOldKernelFiles("/boot")
+    cleaner.clean("/boot", boot_files, "Cleaning old kernels")
+
+    # /var/tmp/portage
+    portage_tmp = os.listdir("/var/tmp/portage")
+    cleaner.clean("/var/tmp/portage", portage_tmp, "Cleaning portage cache")
+
+    # /var/tmp/genkernel
+    genkernel_tmp = os.listdir("/var/tmp/genkernel")
+    cleaner.clean("/var/tmp/genkernel", genkernel_tmp, "Cleaning genkernel cache")
+
+    # /lib/modules
+    lib_modules = cleaner.getOldKernelFiles("/lib/modules", smartcheck=False)
+    cleaner.clean("/lib/modules", lib_modules, "Cleaning old kernel modules")
+
+    if cleaner.size!=0: info(f"Total cleared size: {round(cleaner.size/1024/1024, 2)} MB")
