@@ -111,5 +111,9 @@ if __name__=="__main__":
     # /lib/modules
     lib_modules = cleaner.getOldKernelFiles("/lib/modules", smartcheck=False)
     cleaner.clean("/lib/modules", lib_modules, "Cleaning old kernel modules")
+    
+    # /var/cache/distfiles
+    distfiles = os.listdir("/var/cache/distfiles")
+    cleaner.clean("/var/cache/distfiles", distfiles, "Cleaning portage packages src")
 
     if cleaner.size!=0: info(f"Total cleared size: {round(cleaner.size/1024/1024, 2)} MB")
