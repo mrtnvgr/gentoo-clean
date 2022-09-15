@@ -39,17 +39,26 @@ class Cleaner:
                     filepath = os.path.join(folderpath, file)
                     try:
                         if os.path.isfile(filepath):
-                            self.size += os.path.getsize(filepath)
+                            size = os.path.getsize(filepath)
                             os.remove(filepath)
                         elif os.path.isdir(filepath):
-                            self.size += self.getFolderSize(filepath)
+                            size = self.getFolderSize(filepath)
                             shutil.rmtree(filepath, ignore_errors=True)
-                        print(f"    > {filepath}")
+                        print(f"    > {filepath} ({self.getSize(size=size)})")
+                        self.size += size
                     except PermissionError as p:
                         error(f"{p}")
                         exit(1)
         else:
             info(f"{folderpath} is clean!")
+
+    # Get cleaned size
+    def getSize(self, size=None):
+        if size==None:
+            total = round(self.size/1024/1024, 2)
+        else:
+            total =  round(size/1024/1024, 2)
+        return f"{total} MB"
 
     # Get old kernel files
     @staticmethod
@@ -127,4 +136,4 @@ if __name__=="__main__":
     distfiles = os.listdir("/var/cache/distfiles")
     cleaner.clean("/var/cache/distfiles", distfiles, "Cleaning portage packages src")
 
-    if cleaner.size!=0: info(f"Total cleared size: {round(cleaner.size/1024/1024, 2)} MB")
+    if cleaner.size!=0: info(f"Total cleared size: {cleaner.getSize()}")
