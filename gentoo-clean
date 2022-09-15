@@ -18,11 +18,22 @@ def error(text, func=print, func_args={}):
 class Cleaner:
     def __init__(self):
         self.size = 0
+        self.force = False
+        for arg in sys.argv:
+            if arg in ("-f", "--force"):
+                self.force = True
+            elif arg in ("-h", "--help"):
+                print("gentoo-clean")
+                print("    -f, --force - do not ask")
+                print("    -h, --help - print this text")
+                exit(0)
 
     # Main clean function
     def clean(self, folderpath, files, infotext):
         if files!=[]:
-            if warning(f"Clean {folderpath}? (y/n): ", func=input).lower()=="y":
+            if not self.force:
+                if warning(f"Clean {folderpath}? (y/n): ", func=input).lower()!="y":
+                    return
                 info(f"{infotext} from {folderpath}")
                 for file in files:
                     filepath = os.path.join(folderpath, file)
