@@ -19,12 +19,16 @@ class Cleaner:
     def __init__(self):
         self.size = 0
         self.force = False
+        self.hidden = False
         for arg in sys.argv:
             if arg in ("-f", "--force"):
                 self.force = True
+            elif arg in ("-dh", "--delete-hidden"):
+                self.hidden = True
             elif arg in ("-h", "--help"):
                 print("gentoo-clean")
                 print("    -f, --force - do not ask")
+                print("    -dh, --delete-hidden - delete hidden files")
                 print("    -h, --help - print this text")
                 exit(0)
 
@@ -37,6 +41,12 @@ class Cleaner:
                 info(f"{infotext} from {folderpath}")
                 for file in files:
                     filepath = os.path.join(folderpath, file)
+                    
+                    # Hidden files check
+                    if self.hidden:
+                        if file.startswith("."):
+                            continue
+
                     try:
                         if os.path.isfile(filepath):
                             size = os.path.getsize(filepath)
@@ -68,10 +78,13 @@ class Cleaner:
         oldkernels = []
         # Find old kernel files
         for file in os.listdir(folderpath):
+
+            # Smart check
             if smartcheck:
                 if not any([i in file for i in ("config-", "initramfs-",
                                                 "vmlinuz-", "System.map-")]):
                     continue
+
             if current_kernel not in file:
                 path = os.path.join(folderpath, file)
                 oldkernels.append(path)
