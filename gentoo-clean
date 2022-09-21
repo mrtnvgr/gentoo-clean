@@ -6,14 +6,18 @@ import subprocess, shutil, os, sys
 def paint(color, text, bold=1):
     return f"\033[{0+bold};{color+30};40m\033[49m{text}\033[0m"
 
+
 def info(text, func=print, func_args={}):
     return func(f"[{paint(2, '*')}] {text}", **func_args)
+
 
 def warning(text, func=print, func_args={}):
     return func(f"[{paint(3, '!')}] {text}", **func_args)
 
+
 def error(text, func=print, func_args={}):
     return func(f"[{paint(1, 'x')}] {paint(1, 'error')}: {text}", **func_args)
+
 
 class Cleaner:
     def __init__(self):
@@ -34,16 +38,16 @@ class Cleaner:
 
     # Main clean function
     def clean(self, folderpath, files, infotext):
-        if files!=[]:
+        if files != []:
             if not self.force:
-                if warning(f"Clean {folderpath}? (y/n): ", func=input).lower()!="y":
+                if warning(f"Clean {folderpath}? (y/n): ", func=input).lower() != "y":
                     return
                 info(f"{infotext} from {folderpath}")
                 for file in files:
                     filepath = os.path.join(folderpath, file)
-                    
+
                     # Hidden files check
-                    if self.hidden:
+                    if not self.hidden:
                         if file.startswith("."):
                             continue
 
@@ -64,25 +68,31 @@ class Cleaner:
 
     # Get cleaned size
     def getSize(self, size=None):
-        if size==None:
-            total = round(self.size/1024/1024, 2)
+        if size == None:
+            total = round(self.size / 1024 / 1024, 2)
         else:
-            total =  round(size/1024/1024, 2)
+            total = round(size / 1024 / 1024, 2)
         return f"{total} MB"
 
     # Get old kernel files
     @staticmethod
     def getOldKernelFiles(folderpath, smartcheck=True):
         # Get current kernel name
-        current_kernel = subprocess.check_output(["uname", "-r"]).decode().split("\n")[0]
+        current_kernel = (
+            subprocess.check_output(["uname", "-r"]).decode().split("\n")[0]
+        )
         oldkernels = []
         # Find old kernel files
         for file in os.listdir(folderpath):
 
             # Smart check
             if smartcheck:
-                if not any([i in file for i in ("config-", "initramfs-",
-                                                "vmlinuz-", "System.map-")]):
+                if not any(
+                    [
+                        i in file
+                        for i in ("config-", "initramfs-", "vmlinuz-", "System.map-")
+                    ]
+                ):
                     continue
 
             if current_kernel not in file:
@@ -101,19 +111,20 @@ class Cleaner:
                     size += os.path.getsize(fp)
         return size
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     # System checks
 
     # Check if system is Gentoo Linux
     isGentoo = False
-    if sys.platform=="linux":
+    if sys.platform == "linux":
         if os.path.exists("/etc/os-release"):
             lines = open("/etc/os-release").read().split("\n")
             for line in lines:
                 if line:
                     try:
                         line = line.split("=")
-                        if line[0]=="NAME" and line[1]=="Gentoo":
+                        if line[0] == "NAME" and line[1] == "Gentoo":
                             isGentoo = True
                     except:
                         pass
@@ -122,13 +133,13 @@ if __name__=="__main__":
         exit(1)
 
     # Root user check
-    if os.geteuid()!=0:
+    if os.geteuid() != 0:
         error("Run this as root")
         exit(1)
 
     # Cleaner init
     cleaner = Cleaner()
-    
+
     # /boot
     boot_files = cleaner.getOldKernelFiles("/boot")
     cleaner.clean("/boot", boot_files, "Cleaning old kernels")
@@ -144,9 +155,10 @@ if __name__=="__main__":
     # /lib/modules
     lib_modules = cleaner.getOldKernelFiles("/lib/modules", smartcheck=False)
     cleaner.clean("/lib/modules", lib_modules, "Cleaning old kernel modules")
-    
+
     # /var/cache/distfiles
     distfiles = os.listdir("/var/cache/distfiles")
     cleaner.clean("/var/cache/distfiles", distfiles, "Cleaning portage packages src")
 
-    if cleaner.size!=0: info(f"Total cleared size: {cleaner.getSize()}")
+    if cleaner.size != 0:
+        info(f"Total cleared size: {cleaner.getSize()}")
