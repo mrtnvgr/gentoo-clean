@@ -144,6 +144,15 @@ if __name__ == "__main__":
     boot_files = cleaner.getOldKernelFiles("/boot")
     cleaner.clean("/boot", boot_files, "Cleaning old kernels")
 
+    # /usr/src
+    src_kernel_folders = cleaner.getOldKernelFiles("/usr/src", smartcheck=False)
+    for xfile in [".keep", "linux"]:
+        for file in src_kernel_folders:
+            if xfile == os.path.basename(file):
+                src_kernel_folders.remove(file)
+                break
+    cleaner.clean("/usr/src", src_kernel_folders, "Cleaning old kernel src folders")
+
     # /var/tmp/portage
     portage_tmp = os.listdir("/var/tmp/portage")
     cleaner.clean("/var/tmp/portage", portage_tmp, "Cleaning portage cache")
